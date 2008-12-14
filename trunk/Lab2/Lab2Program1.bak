@@ -1,0 +1,61 @@
+// Lab 2 Program Outline
+// Thomas Hibbert
+// September 22 2008
+
+#include "utilities.nxc"
+
+// Global Variables to track heading and position
+long degrees = 0;
+long xpos = 0;
+long ypos = 0;
+
+task odometer()
+{
+long wheelbval = 0;
+long wheelcval = 0;
+
+while (true)
+{
+// This Reads the degrees rotated by each wheel
+wheelbval = MotorTachoCount(OUT_B);
+wheelcval = MotorTachoCount(OUT_C);
+
+// This does nothing useful. Put your odometry code here
+degrees += 1;
+xpos += 1;
+ypos += 1;
+
+// Print your values to screen
+ClearScreen();
+
+TextOut(0,LCD_LINE1,wheelbval);
+TextOut(0,LCD_LINE2,wheelcval);
+//TextOut(0,LCD_LINE1,"Degrees :");
+//TextOut(0,LCD_LINE2,"X pos :");
+//TextOut(0,LCD_LINE3,"Y pos :");
+Wait(100);
+}
+}
+
+task drive()
+{
+byte button = 0;
+while (true)
+{
+button = waitButton();
+if (button == 1)
+{
+OnFwdEx(OUT_B, 30, RESET_NONE);
+OnFwdEx(OUT_C, 60, RESET_NONE);
+} else {
+OffEx(OUT_BC, RESET_NONE);
+}
+}
+}
+
+task main()
+{
+// You may want to put some initialization code here
+// Schedule odometer and drive tasks to begin
+Precedes (odometer, drive);
+}

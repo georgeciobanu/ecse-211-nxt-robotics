@@ -1,0 +1,149 @@
+
+//Global variables used
+
+
+#define Down 1
+#define Up 0
+
+int detected = 0;
+
+
+
+void Rotate(int degrees, int power){
+     if (degrees < 0)
+          RotateMotorEx(OUT_AC, power, (degrees*23)/10, -100, true, true);
+     else
+          RotateMotorEx(OUT_AC, power, (degrees*23)/10, 100, true, true);
+}
+
+//Print sensor information to the screen
+task PrintInfo()
+{
+ while (true){
+     ClearScreen();
+/*
+     TextOut(0, LCD_LINE1, "Push Sensor: ");
+     NumOut(80, LCD_LINE1, Sensor(S1));
+
+     TextOut(0, LCD_LINE2, "Sound(dB): ");
+     NumOut(80, LCD_LINE2, Sensor(S2));
+     
+     TextOut(0, LCD_LINE3, "Light: ");
+     NumOut(80, LCD_LINE3, Sensor(S3));
+     
+     TextOut(0, LCD_LINE4, "Distance: ");
+     
+     //Adjust erroneus readings from the sensor
+     int newDist = SensorUS(S4);
+     if (newDist < 255)
+     {
+        dist = newDist;
+     }
+     NumOut(80, LCD_LINE4, dist);
+  */
+     Wait(250); //just so that we do not overload the processor
+ }
+}
+
+//Controls movement of the robot
+//This task is only awaken when the shouldMove mutex is released
+//(initially acquired such that it puts Drive to sleep)
+//by pressing the right button.
+//It releases the mutex as soon as it is done with the actual movement.
+//The mutex is acquired again (and hence the Drive task put to sleep) by pressing the 
+//left button.
+task Drive()
+{
+   while (true){
+   {
+         until (detected == 1);
+         detected = 0;
+         Wait(WaitTimeDown); // wait a bit more
+         OnRev(OUT_A);       // flip the see-saw
+         Wait(MotorOnTime);
+         Off(OUT_A);
+         UpDown=Up;
+         
+    until (detected == 1); // wait till the wheel cross sensor beam
+    detected = 0;
+    Wait(WaitTimeUp); // wait a bit more
+    OnFwd(OUT_A);     // flip the see-saw
+    Wait(MotorOnTime);
+    Off(OUT_A);
+    UpDown=Down;
+    
+
+         
+
+
+}
+
+
+
+//This task runs continuously and checks if a button was pressed
+//If the right button was pressed it releases the shouldMove mutex
+//and consequently resumes the Drive task (movement)
+//If th left button was pressed it acquires the shouldMove mutex 
+//which puts the Drive task to sleep (and stops movement).
+task WaitB()
+{
+  bool mine = true;
+  while (true)
+  {
+    int buttonP;
+     buttonP = waitButton();
+     switch(buttonP)
+        {
+        case 1: {
+        
+             if (mine){
+                Release(shouldMove);
+                mine = false;
+             wantMove = true;
+             }
+           };break;
+        case 2: {
+          if(mine==false){
+            wantMove = false;
+            Acquire(shouldMove);
+            mine = true;
+          };
+          
+        }
+     }
+  }
+}
+
+
+//Initializes the sensors on the correct ports
+//Acquires the shoulMove mutex such that when it is first started
+//the Drive task is put to sleep (as it tries to acquire the same mutex)
+//Starts the tasks
+task main()
+{
+  SetSensorLight(IN_3);
+
+  detected = 0;
+
+
+  //start watchdog;
+  threshold = SENSOR_3 + 2; // defines the light threshold
+  
+  UpDown=Down;
+  
+  //rotate to initial position
+  OnFwd(OUT_A);
+  Wait(MotorOnTime);
+  Off(OUT_A);
+
+
+     start PrintInfo;
+     start Drive;
+}
+
+
+
+
+
+
+

@@ -1,0 +1,204 @@
+
+//Global variables used
+
+//Mutex used to control the Drive function
+mutex shouldMove ;
+
+//Variable used to store the last good reading (!=255) from the ultrasonic sensor
+int dist = 0;
+
+//Bool variable used to help stop anytime.
+bool wantMove;
+
+
+
+//Turns left in two steps, the number of degrees passed
+void TurnLeft(int degrees)
+{
+    if (wantMove){
+        RotateMotor(OUT_A, 75, degrees);
+        RotateMotor(OUT_C, -75, degrees);
+    }
+}
+
+//Turns right in two steps, the number of degrees passed
+void TurnRight(int degrees)
+{
+ if (wantMove){
+     RotateMotor(OUT_A, -75, degrees);
+     RotateMotor(OUT_C, 75, degrees);
+ }
+}
+
+//Move forward for the specified amount of time
+//Ideally the argument should be more than 100ms,
+//otherwise it will not be very precise
+void GoForward(int miliseconds)
+{
+     long startTime = CurrentTick();
+     
+	//This loop is used for timing. For performance reasons we only check if the counter
+	//exceeded the value every 100 ms
+     while ( (CurrentTick() < startTime + miliseconds) && wantMove)
+     {
+     OnFwd(OUT_AC, 75);
+     Wait(100);
+     };
+
+
+     Off(OUT_AC);
+     return;
+}
+
+//Move backwards for the specified amount of time
+//Ideally the argument should be more than 100ms,
+//otherwise it will not be very precise
+void GoBackward(int miliseconds)
+{
+     long startTime = CurrentTick();
+
+     OnRev(OUT_AC, 75);
+   	//This loop is used for timing. For performance reasons we only check if the counter
+	//exceeded the value every 100 ms
+     while ( (CurrentTick() < startTime + miliseconds) && wantMove)
+    {
+       Wait(10);
+    
+    };
+
+
+     Off(OUT_AC);
+     return;
+}
+
+//Print sensor information to the screen
+task PrintInfo()
+{
+ while (true){
+     ClearScreen();
+
+     TextOut(0, LCD_LINE1, "Push Sensor: ");
+     NumOut(80, LCD_LINE1, Sensor(S1));
+
+     TextOut(0, LCD_LINE2, "Sound(dB): ");
+     NumOut(80, LCD_LINE2, Sensor(S2));
+     
+     TextOut(0, LCD_LINE3, "Light: ");
+     NumOut(80, LCD_LINE3, Sensor(S3));
+     
+     TextOut(0, LCD_LINE4, "Distance: ");
+     
+     //Adjust erroneus readings from the sensor
+     int newDist = SensorUS(S4);
+     if (newDist < 255)
+     {
+        dist = newDist;
+     }
+     NumOut(80, LCD_LINE4, dist);
+     
+     Wait(250); //just so that we do not overload the processor
+ }
+}
+
+//Controls movement of the robot
+//This task is only awaken when the shouldMove mutex is released
+//(initially acquired such that it puts Drive to sleep)
+//by pressing the right button.
+//It releases the mutex as soon as it is done with the actual movement.
+//The mutex is acquired again (and hence the Drive task put to sleep) by pressing the 
+//left button.
+task Drive()
+{
+     while(true){
+
+     Acquire(shouldMove);
+
+
+     TurnLeft(90);
+     GoForward(500);
+     TurnRight(60);
+     GoBackward(500);
+     GoForward(1000);
+     
+     Release(shouldMove);
+     if (wantMove)
+          Wait(1000);
+    }
+
+}
+
+//Simply returns the button that was pressed
+byte waitButton() {
+         if(ButtonPressed(BTNRIGHT,false)) {
+         return 1;
+         }
+         if(ButtonPressed(BTNLEFT,false)) {
+         return 2;
+         }
+         if(ButtonPressed(BTNCENTER,false)) {
+         return 3;
+         }
+         
+         return 0;
+}
+
+
+//This task runs continuously and checks if a button was pressed
+//If the right button was pressed it releases the shouldMove mutex
+//and consequently resumes the Drive task (movement)
+//If th left button was pressed it acquires the shouldMove mutex 
+//which puts the Drive task to sleep (and stops movement).
+task WaitB()
+{
+  bool mine = true;
+  while (true)
+  {
+    int buttonP;
+     buttonP = waitButton();
+     switch(buttonP)
+        {
+        case 1: {
+        
+             if (mine){
+                Release(shouldMove);
+                mine = false;
+             wantMove = true;
+             }
+           };break;
+        case 2: {
+          if(mine==false){
+            wantMove = false;
+            Acquire(shouldMove);
+            mine = true;
+          };
+          
+        }
+     }
+  }
+}
+
+
+//Initializes the sensors on the correct ports
+//Acquires the shoulMove mutex such that when it is first started
+//the Drive task is put to sleep (as it tries to acquire the same mutex)
+//Starts the tasks
+task main()
+{
+     SetSensorTouch(IN_1);
+     SetSensorSound(IN_2);
+     SetSensorLight(IN_3);
+     SetSensorLowspeed(IN_4);
+     
+     Acquire(shouldMove);
+     
+     start WaitB;
+     start PrintInfo;
+     start Drive;
+}
+
+
+
+
+
+
+

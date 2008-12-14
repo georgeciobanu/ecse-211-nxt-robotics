@@ -1,0 +1,116 @@
+#ifndef _utilities_nxc
+#define _utilities_nxc
+// the above are 'include guards' they prevent the file being
+// included twice
+
+#define modulo(A,B) ((A)>0)?((A)%(B)):(((A)+(B))%(B))
+/* *******************************************************
+ * clearButton: this waits for no buttons to be pressed
+ * *******************************************************/
+void clearButton() {
+   while (ButtonPressed(BTNRIGHT,false) ||
+          ButtonPressed(BTNLEFT,false) ||
+          ButtonPressed(BTNCENTER,false));
+   return;
+}
+
+/* *******************************************************
+ * waitButton: this waits for a button to be pressed
+ * and returns its value in its return value
+ * Button types
+ * 1 right
+ * 2 left
+ * 3 orange
+ * *******************************************************/
+byte waitButton() {
+   byte button=0;
+   until (button) {
+         if(ButtonPressed(BTNRIGHT,false)) {
+         button=1;
+         }
+         if(ButtonPressed(BTNLEFT,false)) {
+         button=2;
+         }
+         if(ButtonPressed(BTNCENTER,false)) {
+         button=3;
+         }
+   }
+   PlayFile("! Click.rso");
+   clearButton();
+   return button;
+
+}
+
+
+/* *******************************************************
+ * titleScreen: displays a startup screen
+ * *******************************************************/
+void titleScreen(string progname,string myname) {
+    TextOut(0,LCD_LINE1,"This is",1);
+    TextOut(0,LCD_LINE2,progname,0);
+    TextOut(0,LCD_LINE3,"Compiled with",0);
+    TextOut(0,LCD_LINE4,"NXC __VER__");
+    TextOut(0,LCD_LINE5,StrCat("by ",myname),0);
+    TextOut(0,LCD_LINE6,"Press to start",0);
+    waitButton();
+    return;
+    }
+
+
+safecall void ValueOut(byte X,byte Y,string title,long value,byte clear)
+{
+string vosval=NumToStr(value);
+TextOut(X,Y,StrCat(title,vosval,"                       "),0);
+}
+
+void setVariable(long & var,const string name,const long vinc, const long vmin, const long vmax) {
+     byte button;
+     while (1) {
+           ValueOut(0,LCD_LINE4,name,var,1);
+           button=waitButton();
+           switch(button) {
+           case BTNRIGHT:
+                if(vmax-var<vinc) {
+                   var=vmin;
+                } else {
+                   var+=vinc;
+                }
+                break;
+           case BTNLEFT:
+                if(var-vmin<vinc) {
+                   var=vmax;
+                } else {
+                   var-=vinc;
+                }
+                break;
+           case BTNCENTER:
+                return;
+           }
+     }
+}
+
+// Robot control commands
+#define ARMMOTOR OUT_A
+#define RIGHTMOTOR OUT_B
+#define LEFTMOTOR OUT_C
+
+#define TURNLEFT(POW) \
+  OnFwdRegEx(OUT_B,POW,OUT_REGMODE_SPEED,RESET_NONE); \
+  OnRevRegEx(OUT_C,POW,OUT_REGMODE_SPEED,RESET_NONE)
+
+#define TURNRIGHT(POW) \
+  OnRevRegEx(OUT_B,POW,OUT_REGMODE_SPEED,RESET_NONE); \
+  OnFwdRegEx(OUT_C,POW,OUT_REGMODE_SPEED,RESET_NONE)
+
+#define FWD(POW) \
+  OnFwdRegEx(OUT_B,POW,OUT_REGMODE_SPEED,RESET_NONE); \
+  OnFwdRegEx(OUT_C,POW,OUT_REGMODE_SPEED,RESET_NONE)
+
+#define REV(POW) \
+  OnRevRegEx(OUT_B,POW,OUT_REGMODE_SPEED,RESET_NONE); \
+  OnRevRegEx(OUT_C,POW,OUT_REGMODE_SPEED,RESET_NONE)
+
+#define STOP \
+  OffEx(OUT_BC,RESET_NONE)
+
+#endif

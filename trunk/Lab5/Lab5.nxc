@@ -1,0 +1,206 @@
+
+#define BLUE 1
+#define RED 2
+#define FLOOR 3
+#define UNKNOWN 4
+
+
+int distance = 255;
+int heading;
+string SFound;
+
+
+//Linear distance the wheel travels by rotating one degree
+//in tens of a milimeter
+int decimmPERdeg = 5;
+
+//Distance between wheels in deci milimeters
+int distanceBetweenWheels = 1150;
+
+//Theta - angle the robot turned
+//x,y - current position of robot
+//dx, dy - distance robot moved since last sample
+long theta, x, y, dx ,dy;
+
+
+
+//Go forward a specified number of milimeters
+void MoveFW(long distMM, int power){
+     RotateMotorEx(OUT_AC, power, distMM*21/10, 0, true, true);
+}
+
+//Rotate, relative to the current position, a specified number of degrees
+//Negative values mean rotation to the left, positive values to the right
+void Rotate(int degrees, int power){
+     if (degrees < 0)
+          RotateMotorEx(OUT_AC, power, (degrees*23)/10, -100, true, true);
+     else
+          RotateMotorEx(OUT_AC, power, (degrees*23)/10, 100, true, true);
+}
+
+//Move backwards a specified number of milimeters
+void MoveBW(long distMM, int power){
+     RotateMotorEx(OUT_AC, -power, distMM*21/10, 0, true, true);
+}
+
+//Rotate to the absolute heading (in degrees, between 0 and 359)
+void GoToHeading(int degrees, int power){
+     int diff = degrees-theta*57/1000;
+     if ( abs(diff) > 180)
+        if (diff > 0)
+           diff = diff-360;
+        else diff = -(360 + diff);
+
+     Rotate(diff, power);
+}
+
+
+
+//Print sensor information to the screen
+task PrintInfo()
+{
+ while (true){
+     ClearScreen();
+
+     TextOut(0, LCD_LINE1, "dist: ");
+     NumOut(80, LCD_LINE1, distance);
+
+     TextOut(0, LCD_LINE2, "Light ");
+     NumOut(80, LCD_LINE2, Sensor(S3));
+
+     TextOut(0, LCD_LINE3, "found: ");
+     TextOut(60, LCD_LINE3,SFound);
+/*
+     TextOut(0, LCD_LINE4, "Distance: ");
+
+     //Adjust erroneus readings from the sensor
+     int newDist = SensorUS(S4);
+     if (newDist < 255)
+     {
+        dist = newDist;
+     }
+     NumOut(80, LCD_LINE4, dist);
+  */
+     Wait(250); //just so that we do not overload the processor
+ }
+}
+
+ task UpdateValues()
+{
+      int td = 0;
+     while(true){
+
+            heading = SensorUS(S2);
+            td = SensorUS(S4);
+            if (td <255)
+                        distance = td;
+    }
+}
+
+int GetWallDistance(){
+  return 100;
+}
+
+
+int CheckIfBall(int dist){
+     int BDiameter = 50;
+     int SensorDist = 30;
+     MoveFW(dist*10 - (BDiameter + SensorDist), 30);
+     int found = UNKNOWN;
+     int light = Sensor(S3);
+     if (light < 30 & light > 20){
+        found = BLUE;
+        SFound = "BLUE";
+   //     TextOut(0, LCD_LINE3, "BLUE ");
+     }
+     else if (light < 62 && light > 40){
+        found = RED;
+        SFound = "RED";
+ //       TextOut(0, LCD_LINE3, "RED   ");
+     }
+     else if (light < 15 && light > 10){
+        found = FLOOR;
+        SFound = "FLOOR";
+  //      TextOut(0, LCD_LINE3, "FLOOR  ");
+     }
+     else {
+          found = UNKNOWN;
+          SFound = "UNKNOWN";
+  //        TextOut(0, LCD_LINE3, "UNKNOWN");
+     }
+     
+     
+     
+     Wait(4000);
+     MoveBW(dist*10 - (BDiameter + SensorDist), 40);
+     return found;
+}
+//Sweep around
+void SearchForBalls(int step){
+
+     int current = 0;
+     int i = 0;
+     for (i=0; i < 90 / step; i+= step){
+         //Try until you get a valid value
+         if ( distance < GetWallDistance() ){
+            CheckIfBall(distance);
+         }
+         GoToHeading(i, 30);
+     }
+     GoToHeading(current,30);
+}
+
+       //Simply returns the button that was pressed
+byte waitButton() {
+         if(ButtonPressed(BTNRIGHT,false)) {
+         return 1;
+         }
+         if(ButtonPressed(BTNLEFT,false)) {
+         return 2;
+         }
+         if(ButtonPressed(BTNCENTER,false)) {
+         return 3;
+         }
+
+         return 0;
+}
+
+
+task Check()
+{
+  while (true){
+
+         if (distance < 40)
+                     CheckIfBall(distance);
+   Wait(4000);
+   }
+
+}
+
+
+
+task main()
+{
+               SFound = "UNKNOWN";
+SetInput(S2, Type, SENSOR_TYPE_LOWSPEED);
+//SetInput(S2, InputMode, SENSOR_MODE_ROTATION);
+SetSensorLowspeed (S4);
+SetSensorLight(S3);
+//SetSensorType(S2, SENSOR_TYPE_ROTATION);
+ //  getHiTechnicCompassReading(IN_4)   ;
+// HTRCXSetSensorType(S2, SENSOR_TYPE_ROTATION);
+start UpdateValues;
+
+start Check;
+start PrintInfo;
+
+
+
+}
+
+
+
+
+
+
+

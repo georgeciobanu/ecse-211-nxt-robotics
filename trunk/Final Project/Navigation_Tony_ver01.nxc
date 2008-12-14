@@ -1,0 +1,502 @@
+# include "NXTDefs.h"
+#define CHAR_WIDTH 6
+#define DegToDistance 227 // Degrees per meter
+#define DistanceToDeg 227//1 mm per degree *1000
+#define DegToOrient 255 // (Rw/Rc)*1000 should be 423
+#define OrientToDeg 236 // (Rc/Rw)*100 should be 235
+#define Ball_x 80
+#define Ball_y 150
+#define FWDSPD 20
+#define Deg_Band 3
+
+#define BASESPEED  30
+#define DELTASPEED 5
+#define SPEEDPLUS  BASESPEED+DELTASPEED
+#define SPEEDMINUS BASESPEED-DELTASPEED
+#define Ultrasonic 25
+
+long degrees=0;
+long xpos=0;
+long ypos=0;
+long Angle=0;
+long Current_x,Current_y,Current_Deg,Final_x,Final_y;
+int Deg_flag=1,Deg_correction;
+
+
+/*int USreading()
+{
+while(true)
+  {
+  int DistanceUS;
+  int average = 0;
+  int count = 1, x, far = 0;
+  repeat(7)
+   {
+   x = SensorUS(IN_4);
+   if(x == 255)
+   {
+   count--;
+   far++;
+   }
+   else
+   average = ((count-1)*average + x)/count;
+   count++;
+   }
+   if(far >=5)
+   {
+   DistanceUS = 255;
+   }
+   else if(far <5)
+   DistanceUS = average;
+   return DistanceUS;
+   }
+} */
+
+int USreading()
+    {
+    int DistanceUS=0;
+    int average = 0;
+    int count_1 =0;
+    int count_2=0;
+    int Temp_x=0;
+    int x;
+    
+    repeat(7)
+    {
+    x = SensorUS(IN_4);
+    if(x == 255)
+    count_1++;
+    else
+    {
+    count_2++;
+    Temp_x+=x;
+    }
+    }
+    if(count_1>count_2)
+    DistanceUS = 255;
+    else if(count_1<count_2)
+    DistanceUS = Temp_x/count_2;
+    return DistanceUS;
+   }
+   
+   
+task odometer()
+
+{
+
+long newA,oldA=0,currentA,newC,oldC=0,currentC;
+long distance,Delta_x,Delta_y;
+long Delta_Angle=0;
+
+while (true) {
+
+newA = MotorTachoCount(OUT_A);
+currentA = newA - oldA;
+oldA = newA;
+newC = MotorTachoCount(OUT_C);
+currentC = newC - oldC;
+oldC = newC;
+
+//Angle conver to center distance=?
+distance = (currentA + currentC)*DegToDistance;
+// DegToOrient=?
+Delta_Angle=(currentC-currentA)*DegToOrient;
+
+long Temp = Angle + Delta_Angle;
+if (Temp >= 360000) {
+Angle = Temp -360000;
+} else if (Temp < 0) {
+Angle = Temp + 360000;
+}
+else {
+Angle = Temp;
+}
+
+degrees=Angle/1000;
+Delta_x = distance*Cos(degrees);
+Delta_y= distance*Sin(degrees);
+xpos += Delta_x;
+ypos += Delta_y;
+
+//int US= USreading();
+//int US=SensorUS(IN_4);
+ClearScreen();
+TextOut(0,LCD_LINE1,"Degrees : ");
+TextOut(0,LCD_LINE2,"x pos ");
+TextOut(0,LCD_LINE3,"y pos ");
+TextOut(0,LCD_LINE4,"US_Reading : ");
+NumOut(10*CHAR_WIDTH,LCD_LINE1,degrees);
+NumOut(10*CHAR_WIDTH,LCD_LINE2,xpos/1000000);
+NumOut(10*CHAR_WIDTH,LCD_LINE3,ypos/1000000);
+NumOut(20*CHAR_WIDTH,LCD_LINE4,SensorUS(IN_4));
+Wait(100);
+
+Current_x=xpos/1000000;
+Current_y=ypos/1000000;
+Current_Deg=degrees;
+
+}
+}
+
+/*task printScreen()
+{
+while(true){
+ClearScreen();
+int US= USreading();
+TextOut(0,LCD_LINE1,"Degrees : ");
+TextOut(0,LCD_LINE2,"x pos ");
+TextOut(0,LCD_LINE3,"y pos ");
+TextOut(0,LCD_LINE4,"US_Reading : ");
+NumOut(10*CHAR_WIDTH,LCD_LINE1,degrees);
+NumOut(10*CHAR_WIDTH,LCD_LINE2,xpos/1000000);
+NumOut(10*CHAR_WIDTH,LCD_LINE3,ypos/1000000);
+NumOut(20*CHAR_WIDTH,LCD_LINE4,US);
+Wait(100);  }
+} */
+
+
+void Go_straightline(){
+  int Error;
+  while(USreading()>15)
+  {
+    Current_Deg= degrees;               // Get current degrees
+    if(Deg_flag==1)
+    Deg_correction=0;
+    else if(Deg_flag==2)
+    Deg_correction=90;
+    else if(Deg_flag==3)
+    Deg_correction=180;
+    else if(Deg_flag==4)
+    Deg_correction=270;
+    Error = Current_Deg-Deg_correction;               // Determine error
+
+    if (abs(Error) <= Deg_Band)
+    OnFwdRegEx(OUT_AC,BASESPEED, OUT_REGMODE_SPEED, RESET_NONE);
+    else if (Error < 0)
+      OnFwd(OUT_A,SPEEDMINUS);
+    else
+      OnFwd(OUT_A,SPEEDPLUS);
+  }
+  Off(OUT_AC);
+}
+
+
+void RotationR_90()
+{
+while(true){
+RotateMotor(OUT_C, 40, 180);
+RotateMotor(OUT_A, -40, 180);
+Wait(640);
+OffEx(OUT_AC, RESET_NONE);
+Wait(1000);
+break;
+          }
+Deg_flag++;
+}
+
+void RotationL_90()
+{
+while(true){
+RotateMotor(OUT_A, 40, 180);
+RotateMotor(OUT_C, -40, 180);
+Wait(640);
+OffEx(OUT_AC, RESET_NONE);
+Wait(1000);
+break;
+          }
+Deg_flag--;
+}
+
+
+void case_1()
+{
+
+while(true){
+if((Current_x<Ball_x)&&(Current_y<Ball_y)){
+
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+
+//X-direction
+//Go_straightline();
+
+if((Current_x<Ball_x)&&(Current_y<Ball_y)){
+
+if((Deg_flag==1)||(Deg_flag%4==1))
+{
+if(USreading()<Ultrasonic){
+OffEx(OUT_AC,RESET_NONE);
+Wait(700);
+RotationR_90();
+if(USreading()<Ultrasonic){
+RotationL_90();
+//Go_straightline();
+OnRevRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+Wait(1000);
+OffEx(OUT_AC,RESET_NONE);
+Wait(200);
+RotationR_90();
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+}
+
+if((Deg_flag==2)||(Deg_flag%4==2))
+{
+if(USreading()<Ultrasonic){
+OffEx(OUT_AC,RESET_NONE);
+Wait(700);
+RotationL_90();
+if(USreading()<Ultrasonic){
+RotationR_90();
+OnRevRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+Wait(1000);
+OffEx(OUT_AC,RESET_NONE);
+Wait(200);
+RotationL_90();
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+}
+
+                  }
+
+                                             }
+else
+{
+OffEx(OUT_AC,RESET_NONE);
+if((Deg_flag==1)||(Deg_flag%4==1))
+{
+Wait(300);
+RotationR_90();
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+until(Current_y==Ball_y);
+OffEx(OUT_AC,RESET_NONE);
+break;
+}
+else if ((Deg_flag==2)||(Deg_flag%4==2)){
+
+Wait(300);
+RotationL_90();
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+until(Current_x==Ball_x);
+OffEx(OUT_AC,RESET_NONE);
+break;
+    }
+ }
+
+    }
+       }
+
+
+
+void case_2()
+{
+
+while(true){
+if((Current_x<Ball_x)&&(Current_y<Ball_y)){
+
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+
+//X-direction
+//Go_straightline();
+
+if((Current_x<Ball_x)&&(Current_y<Ball_y)){
+
+if((Deg_flag==1)||(Deg_flag%4==1))
+{
+if(USreading()<Ultrasonic){
+OffEx(OUT_AC,RESET_NONE);
+Wait(300);
+RotationR_90();
+if(USreading()<Ultrasonic){
+RotationL_90();
+//Go_straightline();
+OnRevRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+Wait(1000);
+OffEx(OUT_AC,RESET_NONE);
+RotationR_90();
+//here changed
+Wait(200);
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+}
+
+if((Deg_flag==2)||(Deg_flag%4==2))
+{
+if(USreading()<Ultrasonic){
+OffEx(OUT_AC,RESET_NONE);
+Wait(300);
+RotationL_90();
+if(USreading()<Ultrasonic){
+RotationR_90();
+OnRevRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+Wait(1000);
+OffEx(OUT_AC,RESET_NONE);
+RotationL_90();
+//here changed
+Wait(200);
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+}
+
+                  }
+
+                                             }
+else
+{
+OffEx(OUT_AC,RESET_NONE);
+if((Deg_flag==1)||(Deg_flag%4==1))
+{
+Wait(300);
+RotationR_90();
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+until(Current_y==Ball_y);
+OffEx(OUT_AC,RESET_NONE);
+break;
+}
+else if ((Deg_flag==2)||(Deg_flag%4==2)){
+
+Wait(300);
+RotationL_90();
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+until(Current_x==Ball_x);
+OffEx(OUT_AC,RESET_NONE);
+break;
+
+}
+
+
+}
+
+}
+
+
+}
+
+
+
+
+
+
+
+
+
+
+task Navigate()
+
+{
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+if((Current_x<Ball_x)&&(Current_y<Ball_y))
+case_1();
+//Wait(500);
+//while(true){
+
+/*if((Current_x<Ball_x)&&(Current_y<Ball_y)){
+
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+
+//X-direction
+//Go_straightline();
+
+if((Current_x<Ball_x)&&(Current_y<Ball_y)){
+
+if((Deg_flag==1)||(Deg_flag%4==1))
+{
+if(USreading()<Ultrasonic){
+OffEx(OUT_AC,RESET_NONE);
+Wait(300);
+RotationR_90();
+if(USreading()<Ultrasonic){
+RotationL_90();
+//Go_straightline();
+OnRevRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+Wait(1000);
+OffEx(OUT_AC,RESET_NONE);
+RotationR_90();
+OnRevRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+}
+
+if((Deg_flag==2)||(Deg_flag%4==2))
+{
+if(USreading()<Ultrasonic){
+OffEx(OUT_AC,RESET_NONE);
+Wait(300);
+RotationL_90();
+if(USreading()<Ultrasonic){
+RotationR_90();
+OnRevRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+Wait(1000);
+OffEx(OUT_AC,RESET_NONE);
+RotationL_90();
+OnRevRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+                  }
+else
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+}
+
+                  }
+
+                                             }
+else
+{
+OffEx(OUT_AC,RESET_NONE);
+if((Deg_flag==1)||(Deg_flag%4==1))
+{
+Wait(300);
+RotationR_90();
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+until(Current_y==Ball_y);
+OffEx(OUT_AC,RESET_NONE);
+break;
+}
+else if ((Deg_flag==2)||(Deg_flag%4==2)){
+
+Wait(300);
+RotationL_90();
+OnFwdRegEx(OUT_AC,FWDSPD, OUT_REGMODE_SPEED, RESET_NONE);
+until(Current_x==Ball_x);
+OffEx(OUT_AC,RESET_NONE);
+break;
+
+}
+
+
+} */
+             //}
+}
+
+task main()
+{
+  SetSensorLowspeed(IN_4);
+  start Navigate;
+  start odometer;
+  //start printScreen;
+  //Precedes(Navigate, odometer,printScreen);
+}

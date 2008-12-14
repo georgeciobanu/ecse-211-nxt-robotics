@@ -1,0 +1,89 @@
+
+//Global variables used
+
+
+#define Down 1;
+#define Up 0;
+
+int detected = 0;
+int UpDown = 0;
+int threshold = 49;
+int WaitTimeDown, WaitTimeUp, counter;
+
+
+//Rotate the motor a specified number of degrees
+void Rotate(int degrees, int power){
+     if (degrees < 0)
+          RotateMotor(OUT_B, -power, degrees);
+     else
+          RotateMotor(OUT_B, power, degrees);
+}
+
+//Print sensor information to the screen
+task PrintInfo()
+{
+ while (true){
+     //ClearScreen();
+
+     TextOut(0, LCD_LINE1, "Light Sensor: ");
+     NumOut(80, LCD_LINE1, Sensor(S3));
+
+     TextOut(0, LCD_LINE2, "Counter: ");
+     NumOut(80, LCD_LINE2, counter);
+     
+     Wait(250); //just so that we do not overload the processor
+ }
+}
+
+//Move the arm such that the ball does not fall off
+//We started off with very smart and complex algorithms and ended up with a very simple one
+task Drive(){
+
+     while(true){
+          if(Sensor(S3)<threshold) {
+              Wait(200);
+              RotateMotor(OUT_B, -60, 180);
+              Wait(250);
+              counter++;
+          }
+     }
+}
+
+
+//Check to see if the wheel is passing in front of the sensor.
+//If yes, than take a couple of samples, to make sure it's not noise.
+//This also helps against detecting the passing wheel multiple times on one pass
+task UpdateValues(){
+  while(true){
+  long sum = 0;
+  int i;
+  for ( i = 0; i < 5; i ++){
+    sum += SENSOR_3;
+
+  }
+    if (sum < threshold){
+     detected = 1;
+    }
+  }
+}
+
+
+//Initializes the sensors on the correct ports
+//Starts the tasks
+task main()
+{
+  SetSensorLight(IN_3);
+  counter = 0;
+  detected = 0;
+
+     start PrintInfo;
+     start Drive;
+     start UpdateValues;
+}
+
+
+
+
+
+
+
