@@ -1,0 +1,131 @@
+#ifndef _ODOMETRY_
+#define _ODOMETRY_
+
+/*
+This file contains the task Odometry, that computes X, Y and Theta
+
+Variables are
+          x, y - in tenths of a millimeter (deci millimiters)
+             domain: integers (-inf..inf)
+          theta - in tenths of a degree (deci degrees)
+*/
+
+
+#include "math.nxc"
+
+#define COMPASS   S2
+//Enable this to use the compass for odometry
+//#define USE_COMPASS
+
+
+//Theta - angle the robot turned
+//x,y - current position of robot
+//dx, dy - distance robot moved since last sample
+
+long theta, x, y, dx ,dy, startDir;
+
+
+//long initialHeading = 0; //Initialize this once (or whenever needed) to have a relative orientation
+//Disabled for now to fix bug
+
+//This should be all you need to know, in order to use.
+
+
+
+
+
+
+//variables used for internal stuff
+//they will be made local (private). They are global only for debugging purposes.
+long wLeftDeg = 0;
+long wRightDeg = 0;
+long wRightDist = 0;
+long wLeftDist = 0;
+long arc = 0;
+long startAngle = 0;
+
+
+
+
+//Linear distance the wheel travels by rotating one degree
+//in tens of a milimeter (deci milimeters)
+int decimmPERdeg = 5; //This might take a bit of tweaking
+
+//Distance between wheels in deci milimeters
+int distanceBetweenWheels = 1730;
+
+
+//Get the distance covered by a wheel by rotating a number of degrees
+//in tenths of a millimeter
+long deg2Decimm(long degrees){
+     return degrees*decimmPERdeg;
+}
+
+//Find out the angle of the arc described by the robot, theta
+//Theta is in thousands' of degrees (mili degrees)
+long getmTheta(long wLeftDist, long wRightDist){
+     long tmp1 = wRightDist-wLeftDist;
+     long tmp2 = tmp1 * 1000;
+    return (tmp2/distanceBetweenWheels);
+}
+
+// Get the length of the arc described by the robot
+long getArc(long wLeftDist, long wRightDist){
+    return (wRightDist+wLeftDist)/2;
+}
+
+
+
+
+
+//This task updates the current position based on wheel rotation
+//It samples as often as possible. The more samples, the better the precision.
+//Theta = current heading
+task Odometry()
+{
+  long newTheta = 0;
+     while(true){
+       //Get the values from the global variable
+       //Note: it would be better to save this value in our own variable
+       //in case the wheels rotate without the robot (slip/skid)
+       long newWLeftDeg = MotorRotationCount(OUT_A);
+       long newWRightDeg = MotorRotationCount(OUT_C);
+
+#ifdef USE_COMPASS
+       theta = SensorHTCompass(COMPASS) * 10;
+#endif
+
+#ifndef USE_COMPASS
+       long tmpTheta = getmTheta(deg2Decimm(wLeftDeg) , deg2Decimm(wRightDeg));
+       tmpTheta = NormalizeHeading(tmpTheta) ;
+       theta = (573*tmpTheta) / 1000; //From miliradians to tenths of a degree
+#endif
+       //Only need to do something if the robot moved
+       if(newWLeftDeg!=wLeftDeg || newWRightDeg!=wRightDeg){
+          //Compute the distance each wheel moved
+          wLeftDist = deg2Decimm(newWLeftDeg - wLeftDeg);
+          wRightDist = deg2Decimm(newWRightDeg - wRightDeg);
+
+        //Update the values for each wheel
+        wLeftDeg = newWLeftDeg;
+        wRightDeg = newWRightDeg;
+
+        //Get the length of the arc we moved
+        arc = getArc(wLeftDist, wRightDist);
+
+          //Convert to degrees, compute dx and dy
+          dx = (arc * Sin(theta)) /100 ;
+          dy = (arc * Cos(theta)) / 100;
+
+          //Update our position
+          long tempx = x + dx;
+          long tempy = y + dy;
+
+          y = tempy;       //In tenths of a milimeter
+          x = tempx;       //In tenths of a milimeter
+       }
+     }
+
+}
+
+#endif

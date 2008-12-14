@@ -1,0 +1,75 @@
+#include "BTlib.nxc"
+
+
+string msg="";
+string msg1="";
+ string text="";
+
+
+task PrintInfo()
+{
+	while (true){
+		ClearScreen();
+    TextOut(0, LCD_LINE1, "Master: ");
+		TextOut(0, LCD_LINE2, text);
+
+/*		TextOut(0, LCD_LINE3, "Theta: ");
+		NumOut(80, LCD_LINE3, theta);
+
+        // display the latest data
+    TextOut(0, LCD_LINE6, "slaveX:              ");
+    TextOut(80, LCD_LINE6, msgX);
+    TextOut(0, LCD_LINE7, "slaveY:              ");
+    TextOut(80, LCD_LINE7, msgY);
+    TextOut(0, LCD_LINE8, "slaveStatus:         ");
+    NumOut(80, LCD_LINE8, status);
+    TextOut(0, LCD_LINE5, "                ");
+*/
+
+		Wait(100); //just so that we do not overload the processor
+	}
+}
+
+
+
+string recieveFromMaster(int mailbox){
+
+   TextOut(0, LCD_LINE5, "Receiving Master...    ");
+   msg = BTReceiveMessage(0, mailbox, true);
+
+   while (msg =="") {
+
+    TextOut(0, LCD_LINE5, "Receiving Master...    ");
+    msg = BTReceiveMessage(0, mailbox, true);
+
+    Wait(100);
+  }
+   if (msg != "") msg1 = msg;
+   return msg1;
+}
+
+
+
+
+void sendToMaster(int mailbox, string message){
+
+
+    BTSendMessage(0, mailbox, message);
+
+    Wait(100);
+
+}
+
+
+task main()
+{
+
+	 start PrintInfo;
+
+
+  text = recieveFromMaster(0);
+	  Wait(12000);
+   sendToMaster(5, "Hi I am SLAVE2");
+
+
+}

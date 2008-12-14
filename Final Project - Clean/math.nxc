@@ -1,0 +1,77 @@
+#ifndef _MATH_
+#define _MATH_
+
+
+
+
+/*
+Function that takes a number representing degrees and converts it to the 0-3599 range
+
+Input: current heading in tenths of a degree (deci degree)
+Input can be negative or positive, any value
+
+Returns: current heading in tenths of a degree (deci degree)
+It is guaranteed to be positive, in the 0-3599 range
+*/
+
+
+int NormalizeHeading(int Heading){
+    Heading %= 3600;
+    if (Heading < 0)
+      Heading += 3600;
+
+    return Heading;
+}
+
+
+
+/*
+Get shortest distance on a circle
+
+Input: the desired heading, and the current heading, both in the 0-3599 range
+Returns: The number of degrees, signed (positive for right, negative for left), to turn
+
+*/
+
+int CircleDistance(int NewHeading, int CurrentHeading){
+int diff;
+
+   NewHeading = NormalizeHeading(NewHeading);
+      CurrentHeading = NormalizeHeading(CurrentHeading);
+
+    diff = NewHeading - CurrentHeading;
+		if ( abs(diff) > 1799)
+			if (diff > 0)
+				diff = -(3599 - diff);
+			else diff = 3599 + diff;
+
+  return diff;
+}
+
+
+//Sample the reading of the US sensor a couple of times to get
+//an accurate reading.
+
+int GetDistance(int SensorPort, int samples){
+  int i = 0, value = 0;
+  long sum = 0;
+  int err = 0;
+  int smp = 0;
+  while( i < samples){
+    value = SensorUS(SensorPort);
+     if (value != 255){
+       sum += value;
+       smp++;
+     }
+     else
+     {
+       err ++;
+     }
+     i++;
+  }
+  if (err < samples /2 )
+    return sum / smp;
+  else return 255;
+}
+
+#endif

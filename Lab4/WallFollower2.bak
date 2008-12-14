@@ -1,0 +1,206 @@
+// Example of a basic feedback loop - simple wall follower
+//
+// F.P. Ferrie
+// September 21, 2007 (translated to NXC)
+//
+
+#include "NXCDefs.h"
+
+#define WALLDIST   37
+#define WALLBAND    5
+#define BASESPEED  50
+#define DELTASPEED 30
+#define SPEEDPLUS  BASESPEED+DELTASPEED
+#define SPEEDMINUS BASESPEED-DELTASPEED
+
+//Linear distance the wheel travels by rotating one degree
+//in tens of a milimeter
+int decimmPERdeg = 5;
+
+//Distance between wheels in deci milimeters
+int distanceBetweenWheels = 1150;
+
+//Theta - angle the robot turned
+//x,y - current position of robot
+//dx, dy - distance robot moved since last sample
+long theta, x, y, dx ,dy;
+
+//variables used for internal stuff
+long wLeftDeg = 0;
+long wRightDeg = 0;
+long wRightDist = 0;
+long wLeftDist = 0;
+long fi=0;
+long arc = 0;
+int tupi= 6283;
+long startAngle = 0;
+
+//Print position information to the screen
+task PrintInfo()
+{
+ while (true){
+     ClearScreen();
+
+     TextOut(0, LCD_LINE1, "X : ");
+     NumOut(60, LCD_LINE1, x/100);
+
+     TextOut(0, LCD_LINE2, "Y : ");
+     NumOut(60, LCD_LINE2,  y/100);
+
+     TextOut(0, LCD_LINE3, "Theta: ");
+     NumOut(60, LCD_LINE3, (theta*57)/1000);
+
+     Wait(250); //just so that we do not overload the processor
+ }
+}
+
+//Get the distance covered by a wheel by rotating a number of degrees
+//in tenths of a millimeter
+long deg2Decimm(long degrees){
+     return degrees*decimmPERdeg;
+}
+
+//Find out the angle of the arc described by the robot, theta
+//Theta is in thousands' of degrees (mili degrees)
+long getmTheta(long wLeftDist, long wRightDist){
+     long tmp1 = wRightDist-wLeftDist;
+     long tmp2 = tmp1 * 1000;
+    return (tmp2/distanceBetweenWheels);
+}
+
+// Get the length of the arc described by the robot
+long getArc(long wLeftDist, long wRightDist){
+    return (wRightDist+wLeftDist)/2;
+}
+
+//Correct the distance from an arc to a chord
+long correction2Cord(long theta){
+     long a = theta/2;
+     if (theta==0)
+        return 1;
+     else return (Sin(a)/a);
+}
+
+
+
+
+//This task updates the current position based on wheel rotation
+//It samples as often as possible. The more samples, the better the precision.
+//Theta = current heading
+task UpdateValues()
+{
+     while(true){
+       //Get the values from the global variable
+       long newWLeftDeg = MotorRotationCount(OUT_A);
+       long newWRightDeg = MotorRotationCount(OUT_C);
+
+       //Only need to do something if the robot moved
+       if(newWLeftDeg!=wLeftDeg || newWRightDeg!=wRightDeg){
+          //Compute the distance each wheel moved
+          wLeftDist = deg2Decimm(newWLeftDeg - wLeftDeg);
+          wRightDist = deg2Decimm(newWRightDeg - wRightDeg);
+
+        //Update the values for each wheel
+        wLeftDeg = newWLeftDeg;
+        wRightDeg = newWRightDeg;
+
+        //Compute theta based on the two wheels
+        long newTheta = getmTheta(deg2Decimm(wLeftDeg) , deg2Decimm(wRightDeg));
+
+        //Adjust theta so that it's always between 0 and 359 degrees
+        newTheta = newTheta % tupi;
+        if (newTheta < 0)
+           newTheta += tupi;
+
+        //Fi is the angle of the vector joining the old and new position
+        fi = (newTheta + theta)/2;
+
+        //Update theta
+        theta = newTheta;
+
+        //Get the length of the arc we moved
+        arc = getArc(wLeftDist, wRightDist);
+
+        //Correct such that we get the chord of the arc, for better precision.
+//      long correction = correction2Cord(theta);
+//      correctedVector = arc * correction;
+
+          //Convert to degrees, compute dx and dy
+          long cfi = fi*57/1000;
+          dx = (arc * Sin(cfi)) /100 ;
+          dy = (arc * Cos(cfi)) / 100;
+
+          //Update our position
+          long tempx = x + dx;
+          long tempy = y + dy;
+
+          y = tempy;
+          x = tempx;
+       }
+     }
+
+}
+
+
+
+// Program runs as a single thread.
+
+task main()
+{
+     x=0;
+     dx=0;
+     y=0;
+     dy=0;
+     theta=0;
+     wRightDist = 0;
+     wLeftDist = 0;
+
+     start UpdateValues;
+
+     start PrintInfo;
+
+  int Distance, Error;
+  int temp;                             //for distance reading ajdustment
+  int con = 0;                       //a variable to count the number of times 255 is read from the sensor
+
+// Initialize sensors and put cart in motion
+// (n.b. the ultrasonic sensor operates differently)
+// Touch sensor in Port 1, ultrasonic on Port 2
+
+  TextOut(0,0,"Dist: ",true);
+  SetSensorLowspeed(IN_4);                    // US on port 4
+  OnFwd(OUT_AC,BASESPEED);                    // Start moving forward
+
+// Feedback loop: read sensor and determine error
+
+  while(true)
+  {
+    temp = SensorUS(IN_4);               // Get current dist to wall
+    if (temp != 255){
+       Distance = temp;
+       con = 0;
+    }
+    else con ++;
+       
+    Error = WALLDIST-Distance;               // Determine error
+    
+    TextOut(50,0,"    ");
+    NumOut(50,0,Distance);
+
+
+    if (Abs(Error) <= WALLBAND)
+      OnFwd(OUT_AC,BASESPEED);               // In band, roll parallel
+    else if (Error < 0)
+      OnFwd(OUT_C,SPEEDMINUS);               // Too far, reduce C speed
+    else{
+      OnFwd(OUT_C,SPEEDPLUS);                // Too close, increase C speed
+      Wait(8);
+    }
+      
+
+    if (con > 7)
+       OnFwd(OUT_C, SPEEDMINUS);
+
+  }
+}
+

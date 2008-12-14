@@ -1,0 +1,314 @@
+
+//Global variables used
+
+//Mutex used to control the Drive function
+mutex shouldMove ;
+
+//Variable used to store the last good reading (!=255) from the ultrasonic sensor
+int dist = 0;
+
+//Bool variable used to help stop anytime.
+bool wantMove;
+
+//Linear distance the wheel travels by rotating one degree
+//in tens of a milimeter
+int decimmPERdeg = 5;
+
+//Distance between wheels in deci milimeters
+int distanceBetweenWheels = 1730;
+
+//Theta - angle the robot turned
+//x,y - current position of robot
+//dx, dy - distance robot moved since last sample
+long theta, x, y, dx ,dy;
+
+//variables used for internal stuff
+long wLeftDeg = 0;
+long wRightDeg = 0;
+long wRightDist = 0;
+long wLeftDist = 0;
+long fi=0;
+long arc = 0;
+int tupi= 6283;
+long startAngle = 0;
+
+
+
+//Go forward a specified number of milimeters
+void GoForward(long distMM, int power){
+     RotateMotorEx(OUT_AC, power, (distMM*213)/100, 0, true, true);
+}
+
+//Rotate, relative to the current position, a specified number of degrees
+//Negative values mean rotation to the left, positive values to the right
+void Rotate(int degrees, int power){
+     if (degrees < 0)
+          RotateMotorEx(OUT_AC, power, (degrees*213)/100, -100, true, true);
+     else
+          RotateMotorEx(OUT_AC, power, (degrees*213)/100, 100, true, true);
+}
+
+//Move backwards a specified number of milimeters
+void GoBackwards(long distMM, int power){
+     RotateMotorEx(OUT_AC, -power, distMM*2, 0, true, true);
+}
+
+//Rotate to the absolute heading (in degrees, between 0 and 359)
+void GoToHeading(int degrees, int power){
+     int diff = degrees-theta*57/1000;
+     if ( abs(diff) > 180)
+        if (diff > 0)
+           diff = diff-360;
+        else diff = -(360 + diff);
+        
+     Rotate(diff, power);
+}
+
+//Move to the absolute position given by X and Y
+//Very nice function to use if a lot is known about the map
+void GoToXY(long xMM, long yMM, int power)
+{
+     long dx = xMM-x;
+     long dy = yMM-y;
+     long dxs = dx*dx;
+     long dys = dy*dy;
+     dys += dxs;
+     long distance = Sqrt(dys);
+     long tempuraSauceInAWeirdSpoon;
+     tempuraSauceInAWeirdSpoon =  dx*100 / distance;
+     long heading = Asin(tempuraSauceInAWeirdSpoon);
+     GoToHeading(heading, power);
+     GoForward(distance, power);
+}
+
+//Print position information to the screen
+task PrintInfo()
+{
+ while (true){
+     ClearScreen();
+
+     TextOut(0, LCD_LINE1, "X : ");
+     NumOut(60, LCD_LINE1, x/100);
+
+     TextOut(0, LCD_LINE2, "Y : ");
+     NumOut(60, LCD_LINE2,  y/100);
+     
+     TextOut(0, LCD_LINE3, "Theta: ");
+     NumOut(60, LCD_LINE3, theta);
+     
+     Wait(250); //just so that we do not overload the processor
+ }
+}
+
+//Controls movement of the robot
+//This task is only awaken when the shouldMove mutex is released
+//(initially acquired such that it puts Drive to sleep)
+//by pressing the right button.
+//It releases the mutex as soon as it is done with the actual movement.
+//The mutex is acquired again (and hence the Drive task put to sleep) by pressing the 
+//left button.
+task Drive()
+{
+     Acquire(shouldMove);
+
+     GoForward(300,60);
+    Wait(3000);
+
+    Rotate(90, 40);
+    Wait(1000);
+//    GoToHeading(10, 70);
+     GoForward(300,60);
+    Wait(3000);
+    Rotate(90, 40);
+    Wait(3000);
+         GoForward(300,60);
+    Wait(3000);
+
+    Rotate(90, 40);
+    Wait(2000);
+         GoForward(300,60);
+    Wait(3000);
+
+    Rotate(90, 40);
+
+    Wait(3000);
+    Rotate(358, 40);
+    Release(shouldMove);
+    
+     if (wantMove)
+          Wait(1000);
+
+}
+
+//Simply returns the button that was pressed
+byte waitButton() {
+         if(ButtonPressed(BTNRIGHT,false)) {
+         return 1;
+         }
+         if(ButtonPressed(BTNLEFT,false)) {
+         return 2;
+         }
+         if(ButtonPressed(BTNCENTER,false)) {
+         return 3;
+         }
+         
+         return 0;
+}
+
+
+//Get the distance covered by a wheel by rotating a number of degrees
+//in tenths of a millimeter
+long deg2Decimm(long degrees){
+     return degrees*decimmPERdeg;
+}
+
+//Find out the angle of the arc described by the robot, theta
+//Theta is in thousands' of degrees (mili degrees)
+long getmTheta(long wLeftDist, long wRightDist){
+     long tmp1 = wRightDist-wLeftDist;
+     long tmp2 = tmp1 * 1000;
+    return (tmp2/distanceBetweenWheels);
+}
+
+// Get the length of the arc described by the robot
+long getArc(long wLeftDist, long wRightDist){
+    return (wRightDist+wLeftDist)/2;
+}
+
+//Correct the distance from an arc to a chord
+long correction2Cord(long theta){
+     long a = theta/2;
+     if (theta==0)
+        return 1;
+     else return (Sin(a)/a);
+}
+
+
+
+
+//This task updates the current position based on wheel rotation
+//It samples as often as possible. The more samples, the better the precision.
+//Theta = current heading
+task UpdateValues()
+{
+     while(true){
+       //Get the values from the global variable
+       long newWLeftDeg = MotorRotationCount(OUT_A);
+       long newWRightDeg = MotorRotationCount(OUT_C);
+
+       long newTheta = SensorHTCompass(S2);
+       //Update theta
+        theta = newTheta;
+
+       //Only need to do something if the robot moved
+       if(newWLeftDeg!=wLeftDeg || newWRightDeg!=wRightDeg){
+          //Compute the distance each wheel moved
+          wLeftDist = deg2Decimm(newWLeftDeg - wLeftDeg);
+          wRightDist = deg2Decimm(newWRightDeg - wRightDeg);
+          
+        //Update the values for each wheel
+        wLeftDeg = newWLeftDeg;
+        wRightDeg = newWRightDeg;
+
+        //Compute theta based on the two wheels
+
+        
+/*        //Adjust theta so that it's always between 0 and 359 degrees
+        newTheta = newTheta % tupi;
+        if (newTheta < 0)
+           newTheta += tupi;
+*/
+        //Fi is the angle of the vector joining the old and new position
+        fi = (newTheta + theta)/2;
+
+
+
+        //Get the length of the arc we moved
+        arc = getArc(wLeftDist, wRightDist);
+
+        //Correct such that we get the chord of the arc, for better precision.
+//      long correction = correction2Cord(theta);
+//      correctedVector = arc * correction;
+
+          //Convert to degrees, compute dx and dy
+          long cfi = fi;
+          dx = (arc * Sin(cfi)) /100 ;
+          dy = (arc * Cos(cfi)) / 100;
+
+          //Update our position
+          long tempx = x + dx;
+          long tempy = y + dy;
+          
+          y = tempy;
+          x = tempx;
+       }
+     }
+
+}
+
+//This task runs continuously and checks if a button was pressed
+//If the right button was pressed it releases the shouldMove mutex
+//and consequently resumes the Drive task (movement)
+//If the left button was pressed it acquires the shouldMove mutex
+//which puts the Drive task to sleep (and stops movement).
+task WaitB()
+{
+  bool mine = true;
+  while (true)
+  {
+    int buttonP;
+     buttonP = waitButton();
+     switch(buttonP)
+        {
+        case 1: {
+        
+             if (mine){
+                Release(shouldMove);
+                mine = false;
+             wantMove = true;
+             }
+           };break;
+        case 2: {
+          if(mine==false){
+            wantMove = false;
+            Acquire(shouldMove);
+            mine = true;
+          };
+          
+        }
+     }
+  }
+}
+
+
+//Initializes the sensors on the correct ports
+//Acquires the shoulMove mutex such that when it is first started
+//the Drive task is put to sleep (as it tries to acquire the same mutex)
+//Starts the tasks
+//Initializes variables
+task main()
+{
+     x=0;
+     dx=0;
+     y=0;
+     dy=0;
+     wRightDist = 0;
+     wLeftDist = 0;
+     
+     SetSensorLowspeed(S2);
+     theta = SensorHTCompass(S2);
+     
+     Acquire(shouldMove);
+     
+     start UpdateValues;
+     start WaitB;
+     start PrintInfo;
+    // start Drive;
+}
+
+
+
+
+
+
+

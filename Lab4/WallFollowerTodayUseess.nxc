@@ -1,0 +1,86 @@
+// Example of a basic feedback loop - simple wall follower
+//
+// F.P. Ferrie
+// September 21, 2007 (translated to NXC)
+//
+
+#include "NXCDefs.h"
+
+#define WALLDIST   37
+#define WALLBAND    6
+#define BASESPEED  40
+#define DELTASPEEDP 40
+#define DELTASPEEDM 35
+#define SPEEDPLUS  BASESPEED+DELTASPEEDP
+#define SPEEDMINUS BASESPEED-DELTASPEEDM
+
+// Program runs as a single thread.
+
+task main()
+{
+  int Distance, Error;
+  int temp;
+  int shit = 0;
+  int eCount = 0;
+  int toWait = 0;
+
+// Initialize sensors and put cart in motion
+// (n.b. the ultrasonic sensor operates differently)
+// Touch sensor in Port 1, ultrasonic on Port 2
+
+  TextOut(0,0,"Dist: ",true);
+  SetSensorLowspeed(IN_4);                    // US on port 4
+  OnFwd(OUT_AC,BASESPEED);                    // Start moving forward
+
+// Feedback loop: read sensor and determine error
+
+  while(true)
+  {
+    temp = SensorUS(IN_4);               // Get current dist to wall
+    if (temp != 255){
+       Distance = temp;
+       shit = 0;
+    }
+    else {
+      shit ++;
+      if (Distance > 0)
+            Distance -= 2;
+      else Distance = 0;
+    }
+       
+    Error = WALLDIST-Distance;               // Determine error
+    
+    TextOut(50,0,"    ");
+    NumOut(50,0,Distance);
+
+
+    if (Abs(Error) <= WALLBAND)
+      OnFwdSync(OUT_AC,BASESPEED, 0);               // In band, roll parallel
+    else
+    if (Error < 0 ){
+      eCount ++;
+         if (eCount > 6)
+           OnFwd(OUT_C,SPEEDMINUS);                  // Too far, reduce C speed
+         else {
+           OnFwd(OUT_C, BASESPEED-10);
+           eCount++;
+          }
+    }
+    else{
+      OnFwd(OUT_C,SPEEDPLUS);                // Too close, increase C speed
+      toWait =12 + (Abs(Error) / 4);
+      if (toWait < 25)
+            Wait(toWait);//this wait should be variable
+      else Wait(22);
+      OnFwdSync(OUT_AC,BASESPEED, 0);
+      Wait(10);
+      eCount = 0;
+    }
+      
+
+    if (shit > 8)
+       OnFwd(OUT_C, SPEEDMINUS);
+
+  }
+}
+

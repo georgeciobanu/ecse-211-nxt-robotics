@@ -1,0 +1,42 @@
+//Tony is Here!!!!
+
+//#include "BTlib.nxc"
+//# include "NXTDefs.h"
+
+
+#include "math.nxc"
+#include "odometry.nxc"
+#include "control.nxc"
+
+
+//Initializes the sensors on the correct ports
+//Acquires the shoulMove mutex such that when it is first started
+//the Drive task is put to sleep (as it tries to acquire the same mutex)
+//Starts the tasks
+//Initializes variables
+
+task main()
+{
+	x=0;
+	dx=0;
+	y=0;
+	dy=0;
+
+
+//	SFound = "UNKNOWN";
+
+   //theta = SensorHTCompass(COMPASS);
+
+	start Odometry;
+//	start Navigate;
+//	start communicateToMaster;
+
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,6 @@
+1. Make the rotation of the robot have precision of less than 1 degree
+2. Move code in header files, such that it is easieto use/read/manage
+
+check compass
+invite Kamraan
+organize files

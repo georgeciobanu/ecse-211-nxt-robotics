@@ -1,0 +1,313 @@
+
+#include "BTlib.nxc"
+#define MAILBOX_OFFSET 0 //Master writes to mailboxes 0-4
+
+
+#define BLUE 1
+#define RED 2
+#define FLOOR 3
+#define UNKNOWN 4
+
+#define COMPASS   S2
+
+#define SEARCHING 0
+#define BALLFOUND 1
+
+//Lab 5 specific variables
+int heading;
+
+
+string msgX, msgY, msgS, msg;        // text recieved from slave
+  int status;
+
+//Linear distance the wheel travels by rotating one degree
+//in tens of a milimeter
+int decimmPERdeg = 5;
+
+//Distance between wheels in deci milimeters
+int distanceBetweenWheels = 1730;
+
+//Get the distance covered by a wheel by rotating a number of degrees
+//in tenths of a millimeter
+long deg2Decimm(long degrees){
+     return degrees*decimmPERdeg;
+}
+
+//Find out the angle of the arc described by the robot, theta
+//Theta is in thousands' of degrees (mili degrees)
+long getmTheta(long wLeftDist, long wRightDist){
+     long tmp1 = wRightDist-wLeftDist;
+     long tmp2 = tmp1 * 1000;
+    return (tmp2/distanceBetweenWheels);
+}
+
+//Theta - angle the robot turned
+//x,y - current position of robot
+//dx, dy - distance robot moved since last sample
+long theta, x, y, dx ,dy, startDirection;
+
+//variables used for internal stuff
+long wLeftDeg = 0;
+long wRightDeg = 0;
+long wRightDist = 0;
+long wLeftDist = 0;
+long arc = 0;
+long startAngle = 0;
+
+
+
+//Go forward a specified number of milimeters
+void MoveFW(long distMM, int power){
+	int started = MotorRotationCount(OUT_A);
+	OnFwdSync(OUT_AC, power, 0);
+	while (MotorRotationCount(OUT_A) < started + (distMM*22)/10);
+	Off(OUT_AC);
+}
+
+
+//Go backwards a specified number of milimeters
+void MoveBW(long distMM, int power){
+	int started = MotorRotationCount(OUT_A);
+	OnRevSync(OUT_AC, power, 0);
+	while (MotorRotationCount(OUT_A) > started - (distMM*22)/10);
+	Off(OUT_AC);
+}
+
+//Rotate, relative to the current position, a specified number of degrees
+//Negative values mean rotation to the left, positive values to the right
+void RotateHelper(int degrees, int power){
+	int initialHeading = theta;
+	long computed =  (degrees*308)/100;
+
+	if (degrees < 0)
+		RotateMotorEx(OUT_AC, power, computed, -100, true, true);
+	else
+		RotateMotorEx(OUT_AC, power, computed, 100, true, true);
+}
+
+
+
+//Rotate to the absolute heading (in degrees, between 0 and 359)
+void GoToHeading(int degrees, int power){
+int tries = 0;
+	while(theta!=degrees){
+		int diff = degrees-theta;
+		if ( abs(diff) > 180)
+			if (diff > 0)
+				diff = -(360 - diff);
+			else diff = 360 + diff;
+
+			RotateHelper(diff, power);
+			tries++;
+
+			//Just in case the algorith does not converge
+			if (tries > 40)
+         return;
+	}
+}
+
+
+//Rotate the robot PRECISELY by that many degrees
+void Rotate(int degrees, int power){
+	int newHeading = theta+degrees;
+	newHeading = newHeading % 360;
+	if (newHeading<0)
+		newHeading+=360;
+
+	GoToHeading(newHeading, power);
+}
+
+
+//Sample the reading of the US sensor a couple of times to get
+//an accurate reading.
+int GetDistance(int SensorPort, int samples){
+  int i = 0, value = 0;
+  long sum = 0;
+  int err = 0;
+  int smp = 0;
+  while( i < samples){
+    value = SensorUS(SensorPort);
+     if (value != 255){
+       sum += value;
+       smp++;
+     }
+     else
+     {
+       err ++;
+
+     }
+     i++;
+  }
+  if (err < samples /2 )
+    return sum / smp;
+  else return 255;
+}
+
+
+
+//Move to the absolute position given by X and Y
+//Very nice function to use if a lot is known about the map
+void GoToXY(long xMM, long yMM, int power)
+{
+	long dx = xMM-x;
+	long dy = yMM-y;
+	long dxs = dx*dx;
+	long dys = dy*dy;
+	dys += dxs;
+	long distance = Sqrt(dys);
+	long tempuraSauceInAWeirdSpoon;
+	tempuraSauceInAWeirdSpoon =  dx*100 / distance;
+	long heading = Asin(tempuraSauceInAWeirdSpoon);
+	GoToHeading(heading, power);
+	MoveFW(distance, power);
+}
+
+//Print position information to the screen
+task PrintInfo()
+{
+	while (true){
+		ClearScreen();
+    TextOut(0, LCD_LINE1, "X: ");
+		NumOut(80, LCD_LINE1, x/100);
+
+		TextOut(0, LCD_LINE2, "Y: ");
+		NumOut(80, LCD_LINE2, y/100);
+
+		TextOut(0, LCD_LINE3, "Theta: ");
+		NumOut(80, LCD_LINE3, theta);
+
+        // display the latest data
+    TextOut(0, LCD_LINE6, "slaveX:              ");
+    TextOut(80, LCD_LINE6, msgX);
+    TextOut(0, LCD_LINE7, "slaveY:              ");
+    TextOut(80, LCD_LINE7, msgY);
+    TextOut(0, LCD_LINE8, "slaveStatus:         ");
+    NumOut(80, LCD_LINE8, status);
+    TextOut(0, LCD_LINE5, "                ");
+
+
+		Wait(250); //just so that we do not overload the processor
+	}
+}
+
+
+
+// Get the length of the arc described by the robot
+long getArc(long wLeftDist, long wRightDist){
+	return (wRightDist+wLeftDist)/2;
+}
+
+
+
+//This task updates the current position based on wheel rotation
+//It samples as often as possible. The more samples, the better the precision.
+//Theta = current heading
+task UpdateValues()
+{
+	while(true){
+
+		//Lab2
+		//Get the values from the global variable
+		long newWLeftDeg = MotorRotationCount(OUT_A);
+		long newWRightDeg = MotorRotationCount(OUT_C);
+
+
+		//Update theta
+    //theta = getmTheta(deg2Decimm(wLeftDeg) , deg2Decimm(wRightDeg)) / 10;
+		theta = SensorHTCompass(COMPASS)-startDirection;
+  	if (theta<0)
+		   theta+=360;
+
+		//Only need to do something if the robot moved
+		if(newWLeftDeg!=wLeftDeg || newWRightDeg!=wRightDeg){
+			//Compute the distance each wheel moved
+			wLeftDist = deg2Decimm(newWLeftDeg - wLeftDeg);
+			wRightDist = deg2Decimm(newWRightDeg - wRightDeg);
+
+			//Update the values for each wheel
+			wLeftDeg = newWLeftDeg;
+			wRightDeg = newWRightDeg;
+
+
+			//Get the length of the arc we moved
+			arc = getArc(wLeftDist, wRightDist);
+
+			//Compute dx and dy
+			dx = (arc * Sin(theta)) /100 ;
+			dy = (arc * Cos(theta)) / 100;
+
+			//Update our position
+			long tempx = x + dx;
+			long tempy = y + dy;
+
+			y = tempy;
+			x = tempx;
+		}
+	}
+
+}
+
+
+//Master code
+task recieveFromSlave(){
+
+  while (true) {
+    // notify about reception
+    TextOut(0, LCD_LINE5, "Receiving...    ");
+
+    // receive and display the data
+    msg = BTReceiveMessage(1, MAILBOX_OFFSET+0, true);        //receieve slave's x position
+    if (msg != "") msgX = msg;
+    msg = BTReceiveMessage(1, MAILBOX_OFFSET+1, true);        //receive slave's y position
+    if (msg != "") msgY = msg;
+    msg = BTReceiveMessage(1, MAILBOX_OFFSET+2, true);        //receive slave's status
+    if (msg != "") msgS = msg;
+
+
+	  status = StrToNum(msgS);                                  //convert status to number
+
+    // wait for courtesy
+    Wait(200);
+  }
+
+
+}
+
+
+//Initializes the sensors on the correct ports
+//Acquires the shoulMove mutex such that when it is first started
+//the Drive task is put to sleep (as it tries to acquire the same mutex)
+//Starts the tasks
+//Initializes variables
+task main()
+{
+	x=0;
+	dx=0;
+	y=0;
+	dy=0;
+	wRightDist = 0;
+	wLeftDist = 0;
+
+	//This is the real US sensor
+	SetSensorLowspeed(COMPASS);
+
+   //The heading of the robot.
+   startDirection = SensorHTCompass(COMPASS) ;
+   theta = SensorHTCompass(COMPASS)-startDirection;
+
+	 start UpdateValues;
+	 start PrintInfo;
+	 start recieveFromSlave;                          //constatly receives messages from the slave
+
+   while (status == SEARCHING);                    //wait as long as the slave is searching for the ball
+   //convert x and y positions to numbers
+   int toX = StrToNum(msgX);
+   int toY = StrToNum(msgY);
+   
+//   go to heading(with offset)
+   GoToXY(toX*10, toY*10, 40);                    //go to position required by slave
+
+
+}
+
+

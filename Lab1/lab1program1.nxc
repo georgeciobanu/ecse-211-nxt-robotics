@@ -1,0 +1,54 @@
+/* **********************************************
+ *
+ * Lab1Program1
+ * Rupert Brooks
+ * McGill University
+ * July, 2007
+ *
+ * **********************************************/
+
+int waitButton();
+task main() {
+     int buttonType;
+     while(true) {
+        buttonType=waitButton();
+        switch (buttonType) {
+        case 1:
+           OnFwdEx(OUT_B,100,RESET_NONE);
+           break;
+        case 2:
+           OnRevEx(OUT_B,100,RESET_NONE);
+           break;
+        case 3:
+           OffEx(OUT_B,RESET_NONE);
+           break;
+        }
+     }
+}
+
+/* *******************************************************
+ * Waitbutton: this waits for a button to be pressed
+ * and returns its value in its return value
+ * Button types
+ * 1 right
+ * 2 left
+ * 3 orange
+ * *******************************************************/
+byte waitButton() {
+   while (true) {
+         if(ButtonPressed(BTNRIGHT,false)) {
+         TextOut(0,LCD_LINE3,"Button 1 pushed",true) ;
+         return 1;
+         }
+         if(ButtonPressed(BTNLEFT,false)) {
+         TextOut(0,LCD_LINE3,"Button 2 pushed",true)  ;
+         return 2;
+         }
+         if(ButtonPressed(BTNCENTER,false)) {
+         TextOut(0,LCD_LINE3,"Button 3 pushed",true)   ;
+         return 3;
+         }
+   }
+}
+
+

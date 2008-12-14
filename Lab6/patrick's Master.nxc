@@ -1,0 +1,41 @@
+/***************************************************************************************************
+ *
+ * master.nxc
+ *
+ * DESCRIPTION: Master code, using BTlib.nxc, for ECSE 211 Fall 2008, Lab 6.
+ *
+ * AUTHOR: Patrick Diez
+ *
+ **************************************************************************************************/
+
+#include "BTlib.nxc"
+#define MAILBOX_OFFSET 0
+
+task main() {
+  string msgX, msgY, msgS, msg;
+  while (true) {
+    // notify about reception
+    TextOut(0, LCD_LINE5, "Receiving...    ");
+
+    // receive and display the data
+    msg = BTReceiveMessage(1, MAILBOX_OFFSET+0, true);
+    if (msg != "") msgX = msg;
+    msg = BTReceiveMessage(1, MAILBOX_OFFSET+1, true);
+    if (msg != "") msgY = msg;
+    msg = BTReceiveMessage(1, MAILBOX_OFFSET+2, true);
+    if (msg != "") msgS = msg;
+
+    // display the latest data
+    TextOut(0, LCD_LINE1, "X:              ");
+    TextOut(0, LCD_LINE2, "Y:              ");
+    TextOut(0, LCD_LINE3, "Status:         ");
+    TextOut(0, LCD_LINE5, "                ");
+    TextOut(18, LCD_LINE1, msgX);
+    TextOut(18, LCD_LINE2, msgY);
+    TextOut(48, LCD_LINE3, msgS);
+
+    // wait for courtesy
+    Wait(200);
+  }
+}
+

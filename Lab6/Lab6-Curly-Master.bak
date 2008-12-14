@@ -1,0 +1,584 @@
+
+#include "BTlib.nxc"
+#define MAILBOX_OFFSET 0
+
+#define BLUE 1
+#define RED 2
+#define FLOOR 3
+#define UNKNOWN 4
+
+#define MAX_RANGE 41
+
+#define LEFT -1
+#define RIGHT 1
+#define STATIC 0
+
+#define US_SENSOR S4
+#define COMPASS   S2
+#define LIGHT     S3
+
+#define MAX_ROWS 3
+
+#define MAX_TRIES 40
+
+
+//Lab 5 specific variables
+int heading = 0;
+int ToMove = 0;
+long distance = 0;
+int togox = 0, togoy = 0;
+
+
+int newTemp;
+
+//Indicate what ball was found
+string SFound;
+int USDist;
+
+//Linear distance the wheel travels by rotating one degree
+//in tens of a milimeter
+int decimmPERdeg = 5;
+
+//Distance between wheels in deci milimeters
+int distanceBetweenWheels = 1730;
+
+
+//Get the distance covered by a wheel by rotating a number of degrees
+//in tenths of a millimeter
+long deg2Decimm(long degrees){
+     return degrees*decimmPERdeg;
+}
+
+//Find out the angle of the arc described by the robot, theta
+//Theta is in thousands' of degrees (mili degrees)
+long getmTheta(long wLeftDist, long wRightDist){
+     long tmp1 = wRightDist-wLeftDist;
+     long tmp2 = tmp1 * 1000;
+    return (tmp2/distanceBetweenWheels);
+}
+
+// Get the length of the arc described by the robot
+long getArc(long wLeftDist, long wRightDist){
+    return (wRightDist+wLeftDist)/2;
+}
+
+
+
+
+//Theta - angle the robot turned
+//x,y - current position of robot
+//dx, dy - distance robot moved since last sample
+long theta, x, y, dx ,dy;
+
+//variables used for internal stuff
+long wLeftDeg = 0;
+long wRightDeg = 0;
+long wRightDist = 0;
+long wLeftDist = 0;
+long arc = 0;
+long startAngle = 0;
+int diff;
+
+
+
+int NormalizeHeading(int Heading){
+    Heading %= 360;
+    if (Heading < 0)
+      Heading += 360;
+      
+    return Heading;
+}
+
+int CircleDistance(int NewHeading, int CurrentHeading){
+    diff = NewHeading - CurrentHeading;
+		if ( abs(diff) > 180)
+			if (diff > 0)
+				diff = -(360 - diff);
+			else diff = 360 + diff;
+
+  return diff;
+}
+
+//Go forward a specified number of milimeters
+void MoveFW(long distMM, int power){
+	int started = MotorRotationCount(OUT_A);
+	OnFwdSync(OUT_AC, power, 0);
+	while (MotorRotationCount(OUT_A) < started + (distMM*22)/10);
+	Off(OUT_AC);
+}
+
+
+//Go backwards a specified number of milimeters
+void MoveBW(long distMM, int power){
+	int started = MotorRotationCount(OUT_A);
+	OnRevSync(OUT_AC, power, 0);
+	while (MotorRotationCount(OUT_A) > started - (distMM*22)/10);
+	Off(OUT_AC);
+}
+
+//Rotate, relative to the current position, a specified number of degrees
+//Negative values mean rotation to the left, positive values to the right
+void RotateHelper(int degrees, int power){
+
+  int finalHeading = NormalizeHeading(theta + degrees);
+  long RoughComputed;
+  
+
+    RoughComputed = (degrees*33)/10;
+    
+  
+  //Rough positioning, witihin 6 degrees
+
+  if (degrees < 0)
+		  RotateMotorEx(OUT_AC, power, RoughComputed, -100, true, true);
+	else
+  		RotateMotorEx(OUT_AC, power, RoughComputed, 100, true, true);
+  		
+
+  //Fine positioning
+/*
+	if (degrees < 0)
+    while (theta > finalHeading)
+		  RotateMotorEx(OUT_AC, power, 10, -100, true, true);
+	else
+    while (theta < finalHeading)
+  		RotateMotorEx(OUT_AC, power, 10, 100, true, true);*/
+}
+
+
+
+//Rotate to the absolute heading (in degrees, between 0 and 359)
+void GoToHeading(int NewHeading, int power){
+
+NormalizeHeading(NewHeading);
+
+int tries = 0;
+newTemp = NewHeading;
+	while(theta!=NewHeading){
+   diff = CircleDistance(NewHeading, theta);
+
+      if (tries > 1)
+			  RotateHelper(diff, 24);
+      else RotateHelper (diff, power);
+      
+			tries++;
+			
+			//Just in case the algorith does not converge
+			if (tries > MAX_TRIES)
+         return;
+         
+     Wait(40);
+	}
+}
+
+
+//Rotate the robot PRECISELY by that many degrees
+void Rotate(int degrees, int power){
+	int newHeading = theta+degrees;
+  NormalizeHeading(newHeading);
+		
+	GoToHeading(newHeading, power);
+}
+
+
+//Sample the reading of the US sensor a couple of times to get
+//an accurate reading.
+int GetDistance(int SensorPort, int samples){
+  int i = 0, value = 0;
+  long sum = 0;
+  int err = 0;
+  int smp = 0;
+  while( i < samples){
+    value = SensorUS(SensorPort);
+     if (value != 255){
+       sum += value;
+       smp++;
+     }
+     else
+     {
+       err ++;
+     }
+     i++;
+  }
+  if (err < samples /2 )
+    return sum / smp;
+  else return 255;
+}
+
+
+
+//Move to the absolute position given by X and Y
+//Very nice function to use if a lot is known about the map
+void GoToXY(long xMM, long yMM, int power)
+{
+	long dx = xMM-x;
+	long dy = yMM-y;
+	long dxs = dx*dx;
+	long dys = dy*dy;
+	dys += dxs;
+	distance = Sqrt(dys);
+	long tempuraSauceInAWeirdSpoon;
+	tempuraSauceInAWeirdSpoon =  dx*100 / distance;
+	heading = abs(Asin(tempuraSauceInAWeirdSpoon));
+	GoToHeading(heading, power);
+	MoveFW(distance/100, power);
+}
+
+//Print position information to the screen
+task PrintInfo()
+{
+	while (true){
+		ClearScreen();
+
+
+		//Lab 5 specific
+		TextOut(0, LCD_LINE2, "GoToXY H: ");
+		NumOut(80, LCD_LINE2, heading);
+		
+			TextOut(0, LCD_LINE1, "Heading: ");
+		NumOut(80, LCD_LINE1, theta);
+
+		TextOut(0, LCD_LINE3, "Distance: ");
+		NumOut(80, LCD_LINE3, distance);
+
+		TextOut(0, LCD_LINE4, "X: ");
+		NumOut(60, LCD_LINE4, x/100);
+
+		TextOut(0, LCD_LINE5, "Y: ");
+		NumOut(60, LCD_LINE5, y/100);
+		
+		TextOut(0, LCD_LINE6, "TO GO X: ");
+		NumOut(60, LCD_LINE6, togox/100);
+
+		TextOut(0, LCD_LINE7, "TO GO Y: ");
+		NumOut(60, LCD_LINE7, togoy/100);
+
+		Wait(250); //just so that we do not overload the processor
+	}
+}
+
+
+
+//Simply returns the button that was pressed
+byte waitButton() {
+	if(ButtonPressed(BTNRIGHT,false)) {
+		return 1;
+	}
+	if(ButtonPressed(BTNLEFT,false)) {
+		return 2;
+	}
+	if(ButtonPressed(BTNCENTER,false)) {
+		return 3;
+	}
+
+	return 0;
+}
+
+
+
+
+
+
+//This task updates the current position based on wheel rotation
+//It samples as often as possible. The more samples, the better the precision.
+//Theta = current heading
+task UpdateValues()
+{
+     while(true){
+       //Get the values from the global variable
+       long newWLeftDeg = MotorRotationCount(OUT_A);
+       long newWRightDeg = MotorRotationCount(OUT_C);
+
+       long newTheta = SensorHTCompass(COMPASS);
+       //Update theta
+        theta = newTheta;
+
+       //Only need to do something if the robot moved
+       if(newWLeftDeg!=wLeftDeg || newWRightDeg!=wRightDeg){
+          //Compute the distance each wheel moved
+          wLeftDist = deg2Decimm(newWLeftDeg - wLeftDeg);
+          wRightDist = deg2Decimm(newWRightDeg - wRightDeg);
+
+        //Update the values for each wheel
+        wLeftDeg = newWLeftDeg;
+        wRightDeg = newWRightDeg;
+
+        //Compute theta based on the two wheels
+
+
+/*        //Adjust theta so that it's always between 0 and 359 degrees
+        newTheta = newTheta % tupi;
+        if (newTheta < 0)
+           newTheta += tupi;
+*/
+        //Get the length of the arc we moved
+        arc = getArc(wLeftDist, wRightDist);
+
+          //Convert to degrees, compute dx and dy
+          dx = (arc * Sin(theta)) /100 ;
+          dy = (arc * Cos(theta)) / 100;
+
+          //Update our position
+          long tempx = x + dx;
+          long tempy = y + dy;
+
+          y = tempy;
+          x = tempx;
+       }
+     }
+
+}
+
+
+
+//This function checks the current position for the ball, and returns the color
+//Direction indicates whether we saw the ball while moving to the left (-1) or right (1)
+//or just by probing staticly (0)
+int CheckIfBall(int Dist, int direction){
+
+
+  int found = UNKNOWN;
+	int light = Sensor(LIGHT);
+	 int tmp;
+
+ //Sweep the area for the maximum value
+  int initial = theta;
+	for (int i = 0; i < 10; i++){
+   tmp = Sensor(LIGHT);
+   if (tmp > light)
+     light = tmp;
+
+   RotateHelper(3, 30);
+ }
+ 
+ //Orient towards the ball
+ GoToHeading(initial, 30);
+ 
+	for (int i = 0; i < 10; i++){
+   tmp = Sensor(LIGHT);
+   if (tmp > light)
+     light = tmp;
+
+   RotateHelper(-3, 30);
+ }
+
+	if (light < 35 & light > 29){
+		found = BLUE;
+		SFound = "BLUE";
+
+	}
+	else if (light < 70 && light > 40){
+		found = RED;
+		SFound = "RED";
+
+	}
+	else if (light < 25 && light > 17){
+		found = FLOOR;
+		SFound = "FLOOR";
+
+	}
+	else {
+		found = UNKNOWN;
+		SFound = "UNKNOWN";
+
+	}
+
+	return found;
+}
+
+
+//Find the edge of the ball, where direction indicates the edge to be found (LEFT or RIGHT)
+int findBallEdge(int dir, int precision){
+	while (GetDistance(US_SENSOR, 11) < MAX_RANGE){
+		if (dir == LEFT)
+			RotateHelper(-precision,30);
+		else
+			RotateHelper(precision,30);
+		Wait(100);
+	}
+	return theta;
+}
+
+//Find ball heading
+int FindBallHeading(int startDirection){
+  //Save initial position
+  int initial = theta;
+  
+  int R, L;
+  
+	R = findBallEdge(RIGHT, 4);
+	//As you are now pointing PAST the ball, move back a little
+	RotateHelper(-4, 30);
+	L = findBallEdge(LEFT, 4);
+
+  int toAdd = CircleDistance(L,R);
+	int angle = L + abs(toAdd)/2;
+
+	return angle;
+}
+
+
+//Sweep <step> degrees at the time, for a maximum of 90 degrees, and check if there is a ball
+int FindBall(int step){
+int i;
+   for (i=0; i <= 90+step ; i+=step){
+		//Try until you get a valid value
+		Wait(100);
+		int distToBall = SensorUS(US_SENSOR);
+
+		if ( distToBall < MAX_RANGE ){
+     RotateHelper(10,30);
+     return distToBall;
+    }
+
+    RotateHelper(step, 30);
+  }
+  return -1;
+}
+
+//The main function, incorporating the ball searching algorithm
+//As well as the movement of the robot
+//It essentially sweeps the area to the right (and front) of the robot,
+//then locates the ball, moves close to it and detects its color.
+void SearchForBalls(int step){
+	int i = 0, row =0, col = 0;
+	int current = theta;
+	int distToBall, ToReverse ;
+
+  //Move around in a square
+	while(true){
+		for (col = 0; col < 3; col++){
+      ToReverse = 0;
+			if (col == 2)
+			{
+				Rotate(90, 30);
+				current = theta;
+			}
+			else
+			{  //Find the ball
+         distToBall = FindBall(10);
+         
+         if (distToBall > 0 && distToBall != 255){
+            //Find the ball heading
+						int ballHeading;
+            ballHeading = FindBallHeading(RIGHT);
+						GoToHeading(ballHeading, 30);
+						
+						distToBall = SensorUS(US_SENSOR);
+						 int dist = distToBall;
+						 
+						 int step = 10;
+						 int Moved = 0;
+						 
+						 //Move close to the ball
+            while( !(dist < 9 || Moved > (distToBall*10)/2 )){
+              dist = SensorUS(US_SENSOR);
+
+              MoveFW(step, 40);
+              Moved += step;
+              
+              //check heading every 7 cm
+              if (Moved%70 == 0){
+       				    ballHeading = FindBallHeading(RIGHT);
+       						GoToHeading(ballHeading, 30);
+              }
+            }
+             
+             Off(OUT_AC);
+             //Turn on the searchlight
+             SetSensorLight(LIGHT);
+						 CheckIfBall(dist, RIGHT);
+
+             //Display the value on the screen, look for another ball if needed
+						Wait(1000);
+						
+						togoy =y + 20*Cos(theta);
+						togox = x+ 20*Sin(theta);
+						GoToXY(togox*10, togoy*10, 40);
+						Off(OUT_AC);
+						Wait(10000);
+          }
+
+				}
+				GoToHeading(current,30);
+				
+				MoveFW(300, 50);
+			}
+  }
+
+}
+
+
+task Check()
+{
+int i = 67;
+/*while(true){
+  Wait(3000);
+//RotateHelper(100, 30);
+GoToHeading(i, 30);
+Wait(3000);
+GoToHeading(0, 30);
+i++;
+  Wait(3000);
+  }
+*/
+ 
+// Wait(3000);
+	SearchForBalls(15);
+
+
+}
+
+
+       //Slave code
+task communicateToMaster(){
+
+   while (true) {
+
+    // send the values
+    BTSendMessage(0, MAILBOX_OFFSET+0, NumToStr(x/100));         //send x position
+    BTSendMessage(0, MAILBOX_OFFSET+1, NumToStr(y/100));         //send y position
+    BTSendMessage(0, MAILBOX_OFFSET+2, NumToStr(status));        //send status
+
+    // wait for courtesy
+    Wait(250);
+  }
+}
+
+
+//Initializes the sensors on the correct ports
+//Acquires the shoulMove mutex such that when it is first started
+//the Drive task is put to sleep (as it tries to acquire the same mutex)
+//Starts the tasks
+//Initializes variables
+task main()
+{
+	x=0;
+	dx=0;
+	y=0;
+	dy=0;
+	wRightDist = 0;
+	wLeftDist = 0;
+
+//	SFound = "UNKNOWN";
+
+	//This is the real US sensor
+	SetSensorLowspeed (US_SENSOR);
+	SetSensorLowspeed(COMPASS);
+
+   //The heading of the robot.
+	theta = SensorHTCompass(COMPASS);
+
+
+	start UpdateValues;
+	start PrintInfo;
+	start communicateToMaster;
+
+}
+
+
+
+
+
+
+

@@ -1,0 +1,100 @@
+#include "BTlib.nxc"
+
+string msgs1="";
+string msgs2="";
+string msg1="";
+string msg2="";
+
+task PrintInfo()
+{
+	while (true){
+		ClearScreen();
+    TextOut(0, LCD_LINE1, "Slave1: ");
+		TextOut(0, LCD_LINE2, msg1);
+
+		TextOut(0, LCD_LINE3, "Slave2: ");
+		TextOut(0, LCD_LINE4, msg2);
+
+
+
+		Wait(250); //just so that we do not overload the processor
+	}
+}
+
+
+
+string recieveFromSlave1(int mailbox){
+
+   TextOut(0, LCD_LINE5, "Receiving slave 1...    ");
+   msgs1 = BTReceiveMessage(1, mailbox, true);
+
+   while (msgs1 == "") {
+
+    TextOut(0, LCD_LINE5, "Receiving slave 1...    ");
+
+    msgs1 = BTReceiveMessage(1, mailbox, true);
+    
+
+    Wait(100);
+  }
+    if (msgs1 != "") //msg1 = msgs1;
+    retun msgs1;
+}
+
+
+string recieveFromSlave2(int mailbox){
+
+   TextOut(0, LCD_LINE5, "Receiving slave 2...    ");
+   msgs2 = BTReceiveMessage(2, mailbox, true);
+
+   while (msgs2 =="") {
+
+    TextOut(0, LCD_LINE5, "Receiving slave 2...    ");
+
+    msgs2 = BTReceiveMessage(2, mailbox, true);
+
+
+    Wait(100);
+  }
+    if (msgs2 != "") //msg2 = msgs2;
+    retun msgs2;
+}
+
+void sendToSlave1(int mailbox, string message){
+
+    BTSendMessage(1,mailbox ,message );
+
+    Wait(100);
+
+}
+
+
+void sendToSlave2(int mailbox, string message){
+
+    BTSendMessage(2, mailbox, message);
+
+    Wait(100);
+
+}
+
+
+task main()
+{
+
+	 start PrintInfo;
+
+
+   Wait(3000);
+    sendToSlave1(0,"Master to s1");
+   
+   Wait(3000);
+   sendToSlave2(0, "Master to s2");
+   Wait(3000);
+   msg1 = recieveFromSlave1(5);
+   Wait(3000);
+   msg2 = recieveFromSlave2(5);
+
+
+
+
+}

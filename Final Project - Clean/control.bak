@@ -1,0 +1,107 @@
+#ifndef _KATYA_
+#define _KATYA_
+
+#include "math.nxc"
+#include "odometry.nxc"
+
+
+#define MAX_TRIES 40
+
+//Go forward a specified number of milimeters
+void MoveFW(long distMM, int power){
+	int started = MotorRotationCount(OUT_A);
+	OnFwdSync(OUT_AC, power, 0);
+	while (MotorRotationCount(OUT_A) < started + (distMM*22)/10);
+	Off(OUT_AC);
+}
+
+
+//Go backwards a specified number of milimeters
+void MoveBW(long distMM, int power){
+	int started = MotorRotationCount(OUT_A);
+	OnRevSync(OUT_AC, power, 0);
+	while (MotorRotationCount(OUT_A) > started - (distMM*22)/10);
+	Off(OUT_AC);
+}
+
+//Rotate, relative to the current position, a specified number of degrees
+//Negative values mean rotation to the left, positive values to the right
+void RotateHelper(int degrees, int power){
+
+  int finalHeading = NormalizeHeading(theta + degrees);
+  long RoughComputed;
+
+    RoughComputed = (degrees*33)/10;
+
+  //Rough positioning, witihin 6 degrees
+
+  if (degrees < 0)
+		  RotateMotorEx(OUT_AC, power, RoughComputed, -100, true, true);
+	else
+  		RotateMotorEx(OUT_AC, power, RoughComputed, 100, true, true);
+
+
+  //Fine positioning - This code will be improved, for now it is inactive.
+/*
+	if (degrees < 0)
+    while (theta > finalHeading)
+		  RotateMotorEx(OUT_AC, power, 10, -100, true, true);
+	else
+    while (theta < finalHeading)
+  		RotateMotorEx(OUT_AC, power, 10, 100, true, true);*/
+}
+
+//Rotate to the absolute heading (in degrees, between 0 and 359)
+void GoToHeading(int NewHeading, int power){
+     int diff;
+    NormalizeHeading(NewHeading);
+
+    int tries = 0;
+	while(theta!=NewHeading){
+   diff = CircleDistance(NewHeading, theta);
+
+      if (tries > 1)
+			  RotateHelper(diff, 24); //Use low power to converge
+      else RotateHelper (diff, power);
+
+			tries++;
+
+			//Just in case the algorith does not converge
+			if (tries > MAX_TRIES)
+         return;
+
+     Wait(40);  //Wait a little to converge. Not sure this is needed
+	}
+}
+
+
+//Rotate the robot EXACTLY by that many degrees (controlled)
+void Rotate(int degrees, int power){
+	int newHeading = theta+degrees;
+  newHeading = NormalizeHeading(newHeading);
+
+	GoToHeading(newHeading, power);
+}
+
+
+
+//Move to the absolute position given by X and Y
+//Very nice function to use if a lot is known about the map
+/*void GoToXY(long xMM, long yMM, int power)
+{
+	long dx = xMM-x;
+	long dy = yMM-y;
+	long dxs = dx*dx;
+	long dys = dy*dy;
+	dys += dxs;
+	distance = Sqrt(dys);
+	long tempuraSauceInAWeirdSpoon;
+	tempuraSauceInAWeirdSpoon =  dx*100 / distance;
+	heading = Asin(tempuraSauceInAWeirdSpoon);
+
+	GoToHeading(heading, power);
+	MoveFW(distance/100, power);
+}*/
+
+
+#endif

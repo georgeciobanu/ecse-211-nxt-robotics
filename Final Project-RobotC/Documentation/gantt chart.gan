@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Final Project organization" company="Team Kilo" webLink="http://" view-date="2008-10-22" view-index="0" gantt-divider-location="260" resource-divider-location="301" version="2.0">
+    <description/>
+    <view zooming-state="default:2" id="gantt-chart"/>
+    <view id="resource-table">
+        <field id="0" name="Name" width="55" order="0"/>
+        <field id="1" name="Default role" width="44" order="1"/>
+    </view>
+    <!-- -->
+    <calendars>
+        <day-types>
+            <day-type id="0"/>
+            <day-type id="1"/>
+            <calendar id="1" name="default">
+                <default-week sun="1" mon="0" tue="0" wed="0" thu="0" fri="0" sat="1"/>
+                <overriden-day-types/>
+                <days/>
+            </calendar>
+        </day-types>
+    </calendars>
+    <tasks color="#8cb6ce">
+        <taskproperties>
+            <taskproperty id="tpd0" name="type" type="default" valuetype="icon"/>
+            <taskproperty id="tpd1" name="priority" type="default" valuetype="icon"/>
+            <taskproperty id="tpd2" name="info" type="default" valuetype="icon"/>
+            <taskproperty id="tpd3" name="name" type="default" valuetype="text"/>
+            <taskproperty id="tpd4" name="begindate" type="default" valuetype="date"/>
+            <taskproperty id="tpd5" name="enddate" type="default" valuetype="date"/>
+            <taskproperty id="tpd6" name="duration" type="default" valuetype="int"/>
+            <taskproperty id="tpd7" name="completion" type="default" valuetype="int"/>
+            <taskproperty id="tpd8" name="coordinator" type="default" valuetype="text"/>
+            <taskproperty id="tpd9" name="predecessorsr" type="default" valuetype="text"/>
+        </taskproperties>
+        <task id="0" name="Define requirement and constrains" color="#8cb6ce" meeting="false" start="2008-10-24" duration="5" complete="90" priority="1" expand="true">
+            <depend id="1" type="2" difference="0" hardness="Strong"/>
+        </task>
+        <task id="1" name="Split work into components and assign tasks" color="#8cb6ce" meeting="false" start="2008-10-31" duration="1" complete="100" priority="1" expand="true">
+            <depend id="2" type="2" difference="0" hardness="Strong"/>
+        </task>
+        <task id="2" name="Generate prototypes for modules(each member)" color="#8cb6ce" meeting="false" start="2008-11-03" duration="7" complete="85" priority="1" expand="true">
+            <depend id="9" type="2" difference="0" hardness="Strong"/>
+            <task id="15" name="Discuss plan B" color="#8cb6ce" meeting="false" start="2008-11-05" duration="1" complete="100" priority="1" expand="true"/>
+            <task id="3" name="Obstacle avoiding code" meeting="false" start="2008-11-03" duration="6" complete="100" priority="1" expand="true"/>
+            <task id="4" name="Build Scooper" meeting="false" start="2008-11-03" duration="5" complete="80" priority="1" expand="true"/>
+            <task id="5" name="Build Loader" meeting="false" start="2008-11-03" duration="5" complete="80" priority="1" expand="true"/>
+            <task id="6" name="Initial position" meeting="false" start="2008-11-03" duration="4" complete="50" priority="1" expand="true"/>
+            <task id="7" name="Update documentation" meeting="false" start="2008-11-05" duration="3" complete="100" priority="1" expand="true"/>
+            <task id="8" name="Test 2 codes" meeting="false" start="2008-11-07" duration="3" complete="100" priority="1" expand="true"/>
+        </task>
+        <task id="9" name="Test individual modules" meeting="false" start="2008-11-12" duration="2" complete="100" priority="1" expand="true">
+            <depend id="10" type="2" difference="0" hardness="Strong"/>
+        </task>
+        <task id="10" name="Connect modules" meeting="false" start="2008-11-14" duration="1" complete="100" priority="1" expand="true"/>
+        <task id="11" name="Test modules connected" meeting="false" start="2008-11-14" duration="1" complete="100" priority="1" expand="true"/>
+        <task id="12" name="Iteration 2 - Refine solution" meeting="false" start="2008-11-17" duration="8" complete="100" priority="1" expand="true"/>
+    </tasks>
+    <resources>
+        <resource id="0" name="George Ciobanu" function="Default:1" contacts="" phone=""/>
+        <resource id="1" name="Rana Muaddi" function="0" contacts="" phone=""/>
+        <resource id="2" name="Su Cong" function="2" contacts="" phone=""/>
+        <resource id="3" name="Patrick Lamaa" function="1" contacts="" phone=""/>
+        <resource id="4" name="Kamran" function="1" contacts="" phone=""/>
+        <resource id="5" name="Tony" function="2" contacts="" phone=""/>
+    </resources>
+    <allocations>
+        <allocation task-id="0" resource-id="0" function="Default:1" responsible="false" load="100.0"/>
+        <allocation task-id="0" resource-id="1" function="0" responsible="false" load="100.0"/>
+        <allocation task-id="0" resource-id="5" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="0" resource-id="2" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="0" resource-id="3" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="0" resource-id="4" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="1" resource-id="0" function="Default:1" responsible="false" load="100.0"/>
+        <allocation task-id="1" resource-id="1" function="0" responsible="false" load="100.0"/>
+        <allocation task-id="1" resource-id="5" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="1" resource-id="2" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="1" resource-id="3" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="1" resource-id="4" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="2" resource-id="0" function="Default:1" responsible="false" load="100.0"/>
+        <allocation task-id="2" resource-id="1" function="0" responsible="false" load="100.0"/>
+        <allocation task-id="2" resource-id="5" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="2" resource-id="2" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="2" resource-id="3" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="2" resource-id="4" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="9" resource-id="5" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="9" resource-id="2" function="2" responsible="true" load="100.0"/>
+        <allocation task-id="10" resource-id="0" function="Default:1" responsible="false" load="100.0"/>
+        <allocation task-id="10" resource-id="3" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="10" resource-id="4" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="11" resource-id="1" function="0" responsible="true" load="100.0"/>
+        <allocation task-id="11" resource-id="3" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="12" resource-id="0" function="Default:1" responsible="false" load="100.0"/>
+        <allocation task-id="12" resource-id="1" function="0" responsible="true" load="100.0"/>
+        <allocation task-id="12" resource-id="5" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="12" resource-id="2" function="2" responsible="false" load="100.0"/>
+        <allocation task-id="12" resource-id="3" function="1" responsible="false" load="100.0"/>
+        <allocation task-id="12" resource-id="4" function="1" responsible="false" load="100.0"/>
+    </allocations>
+    <vacations/>
+    <taskdisplaycolumns>
+        <displaycolumn property-id="tpd3" order="0" width="237"/>
+        <displaycolumn property-id="tpd4" order="1" width="28"/>
+        <displaycolumn property-id="tpd5" order="2" width="27"/>
+    </taskdisplaycolumns>
+    <previous/>
+    <roles roleset-name="Default"/>
+    <roles>
+        <role id="0" name="Secretary"/>
+        <role id="1" name="Programmer"/>
+        <role id="2" name="Tester"/>
+    </roles>
+</project>

@@ -1,0 +1,57 @@
+#ifndef _MISC_
+#define _MISC_
+
+//Comments in Master.nxc
+//Adjust for 0-3599 interval
+int NormalizeHeading(int Heading){
+    Heading %= 3600;
+    if (Heading < 0)
+      Heading += 3600;
+
+    return Heading;
+}
+
+//Comments in Master.nxc
+//Get distance on a circle
+int CircleDistance(int NewHeading, int CurrentHeading){
+long diff;
+
+   NewHeading = NormalizeHeading(NewHeading);
+      CurrentHeading = NormalizeHeading(CurrentHeading);
+
+    diff = NewHeading - CurrentHeading;
+		if ( abs(diff) > 1800)
+			if (diff > 0)
+				diff = -(3600 - diff);
+			else diff = 3600 + diff;
+
+  return diff;
+}
+
+
+//Sample the reading of the US sensor a couple of times to get
+//an accurate reading.
+
+int GetDistance(int SensorPort, int samples){
+  int i = 0, value = 0;
+  long sum = 0;
+  int err = 0;
+  int smp = 0;
+  while( i < samples){
+    value = SensorUS(SensorPort);
+     if (value != 255){
+       sum += value;
+       smp++;
+     }
+     else
+     {
+       err ++;
+     }
+     i++;
+  }
+  if (err < samples /2 )
+    return sum / smp;
+  else return 255;
+}
+
+#endif
